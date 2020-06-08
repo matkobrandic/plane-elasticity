@@ -83,12 +83,10 @@ void driver(GV & gv, double E, double nu, double g_vert, double rho, std::string
 	// Uzmimo tipove za potprostore: 0 -> potprostor prve komponente, 1 -> druge itd.
 	using U0SUB = Dune::PDELab::GridFunctionSubSpace<GFS, Dune::TypeTree::TreePath<0> >;
 	using U1SUB = Dune::PDELab::GridFunctionSubSpace<GFS, Dune::TypeTree::TreePath<1> >;
-	using U2SUB = Dune::PDELab::GridFunctionSubSpace<GFS, Dune::TypeTree::TreePath<2> >;
 
 	// Napravi mrežnu funciju od svake komponenete rješenja
 	using U0_DGF =  Dune::PDELab::DiscreteGridFunction<U0SUB, U> ;
 	using U1_DGF =  Dune::PDELab::DiscreteGridFunction<U1SUB, U> ;
-	using U2_DGF =  Dune::PDELab::DiscreteGridFunction<U2SUB, U> ;
 
 	FEM0 fem0(gv);
 	GFS0 gfs0(gv,fem0);
@@ -102,9 +100,9 @@ void driver(GV & gv, double E, double nu, double g_vert, double rho, std::string
 	CC cc;
 	Dune::PDELab::constraints(bc, gfs, cc);
 
-	// Parametri za lokalni operator
-	double mu = E/( 2*(1+nu) );
-	double lambda = E*nu/( (1+nu)*(1-2*nu) );
+	// Lame constants
+	double mu = E / ( 2 * (1 + nu) );
+	double lambda = E * nu / ((1 + nu) * (1 - 2*nu));
 	LOP lop(bc0, mu, lambda, g_vert, rho);
 	MBE mbe(std::pow(1 + 2 * k, dim));
 	GO go(gfs, cc, gfs, cc, lop, mbe);
@@ -138,18 +136,15 @@ void driver(GV & gv, double E, double nu, double g_vert, double rho, std::string
 	Dune::SubsamplingVTKWriter<GV> vtkwriter(gv, Dune::RefinementIntervals{1});
 	U0SUB u0sub(gfs); // prostor za prvu komponentu
 	U1SUB u1sub(gfs); // prostor za drugu komponentu
-	U2SUB u2sub(gfs);
 	U0_DGF u0_dgf(u0sub, u);
 	U1_DGF u1_dgf(u1sub, u);
-	U2_DGF u2_dgf(u2sub, u);
 
 	using Adapter0 = Dune::PDELab::VTKGridFunctionAdapter<U0_DGF>;
 	using Adapter1 = Dune::PDELab::VTKGridFunctionAdapter<U1_DGF>;
-	using Adapter2 = Dune::PDELab::VTKGridFunctionAdapter<U2_DGF>;
+	
 	// Ispiši mrežne funkcije
 	vtkwriter.addVertexData( std::make_unique<Adapter0>(u0_dgf, "u_x"));
 	vtkwriter.addVertexData( std::make_unique<Adapter1>(u1_dgf, "u_y"));
-	vtkwriter.addVertexData( std::make_unique<Adapter2>(u2_dgf, "u_z"));
 	vtkwriter.write(name, Dune::VTK::ascii);
 }
 #endif

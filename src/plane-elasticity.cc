@@ -34,18 +34,29 @@ int main(int argc, char** argv){
 	int   level   =  input_data.get<int>("level");  // refine level
 	double E      =  input_data.get<double>("E");   // Young Modulus
 	double nu     =  input_data.get<double>("nu");  // Poisson Ratio
-	double g_vert =  input_data.get<double>("g_vert");// Površinska sila na presjek
+	double g_vert =  input_data.get<double>("g_vert");
 	double rho    =  input_data.get<double>("rho");  // Mass Density
 	std::string name = input_data.get<std::string>("output"); 
 
+	//computing Lame constants lambda and mui
+	double numerator = E * nu;
+	double denominator = (1 + nu) * (1 - 2*nu);
+	double lambda = numerator / denominator;
+	
+	denominator = 2 * (1 + nu);
+	double mu = E / denominator;
 
-	constexpr int dim = 2;  // dimenzija mreže
+	g_vert *= (mu + lambda);
+
+	constexpr int dim = 2;  // grid dimension
 	using GridType = Dune::YaspGrid<dim>;
-	Dune::FieldVector<GridType::ctype,dim> L(2.0); // Duljina stranice
-	std::array<int,dim> s = {20, 20}; // broj ćelija po stranici
-	GridType grid(L, s); // 20 x 1 x 2
-	if(level > 0)
+	Dune::FieldVector<GridType::ctype,dim> L(2.0); // 
+
+	std::array<int,dim> s = {20, 20};
+	GridType grid(L, s);
+	if(level > 0){
 		grid.globalRefine(level);
+	}
 
 	auto gv = grid.leafGridView();
 	driver(gv, E, nu, g_vert, rho, name);

@@ -68,7 +68,6 @@ public:
 		// skalarni prostori
 		auto const & lfsu0 = lfsu.template child<0>();
 		auto const & lfsu1 = lfsu.template child<1>();
-		auto const & lfsu2 = lfsu.template child<2>();
 
 		for(auto const & qp : rule){
 			// Uzimamo samo skalarne bazne funkcije jer su bazne funkcije za svaku komponentu iste.
