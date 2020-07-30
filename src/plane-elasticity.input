@@ -1,6 +1,5 @@
 level = 0
 E     = 5e9
 nu    = 0.3
-g_vert = 2e-2
-output = pomakB
+output = pomak
 rho = 5000

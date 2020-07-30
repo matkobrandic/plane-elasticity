@@ -29,12 +29,12 @@ public:
 	// Zastavice koje signaliziraju da na svakom elementu treba zvati: 
 	enum { doPatternVolume = true };  // metodu za računanje patterna (iz volumnih doprinosa)
 	enum { doAlphaVolume = true };    // alpha_volume
-	enum { doAlphaBoundary = true };  // alpha_boundary         
+	enum { doAlphaBoundary = true };  // alpha_boundary
 
 	ElasticityLocalOperator(const BCType& bctype_, // boundary cond.type
-							double mu_, double lambda_, double g_vert_, double rho_,
+							double mu_, double lambda_, double g_, double rho_,
 							unsigned int intorder_= 2) :
-	bctype( bctype_ ), mu(mu_), lambda(lambda_), g_vert(g_vert_), rho(rho_), intorder( intorder_ )
+	bctype( bctype_ ), mu(mu_), lambda(lambda_), g(g_), rho(rho_), intorder( intorder_ )
 	{}
 
 	// volume integral depending on test and ansatz functions
@@ -49,6 +49,7 @@ public:
 		const int dim = EG::Geometry::mydimension;
 		const int dimw = EG::Geometry::coorddimension;
 
+		std::cout << "AV 1" << std::endl;
 		// Koristimo činjenicu da je LFSU = LFSV
 		// Tipovi skalarnih prostora dobivaju se na ovaj način.
 		// using LFSU0 = typename LFSU::template Child<0>::Type;
@@ -69,6 +70,8 @@ public:
 		auto const & lfsu0 = lfsu.template child<0>();
 		auto const & lfsu1 = lfsu.template child<1>();
 
+		std::cout << "AV 2" << std::endl;
+
 		for(auto const & qp : rule){
 			// Uzimamo samo skalarne bazne funkcije jer su bazne funkcije za svaku komponentu iste.
 			auto& phi0 = cache.evaluateFunction(qp.position(), lfsu0.finiteElement().localBasis());
@@ -80,9 +83,7 @@ public:
 			for(size_type i = 0; i < lfsu1.size(); ++i){
 				u_1 += x(lfsu1,i)*phi0[i];
 			}
-			for(size_type i = 0; i < lfsu2.size(); ++i){
-				u_2 += x(lfsu2,i)*phi0[i];
-			}
+			std::cout << "AV 3" << std::endl;
 			// Gradijenti skalarnih baznih funkcija na ref elementu.
 			auto const & js0 = cache.evaluateJacobian(qp.position(), lfsu0.finiteElement().localBasis());
 			// Gradijenti skalarnih baznih funkcija na fizičkom elementu
@@ -92,16 +93,14 @@ public:
 				jac.mv(js0[i][0],gradphi0[i]);  // gradphi0[i] = jac * js0[i][0]
 			}
 			// Gradijent komponenti rješenja (pomaka).
-			Gradient gradu_0(0.0),  gradu_1(0.0), gradu_2(0.0);
+			Gradient gradu_0(0.0),  gradu_1(0.0);
 			for(size_type i = 0; i < lfsu0.size(); ++i){
 				gradu_0.axpy(x(lfsu0,i), gradphi0[i]);
 			}
 			for(size_type i = 0; i < lfsu1.size(); ++i){
 				gradu_1.axpy(x(lfsu1,i), gradphi0[i]);
 			}
-			for(size_type i = 0; i < lfsu2.size(); ++i){
-				gradu_2.axpy(x(lfsu2,i), gradphi0[i]);
-			}
+			std::cout << "AV 4" << std::endl;
 			// evaluate parameters;
 			// Dune::FieldVector<RF,dim>
 			//   globalpos = eg.geometry().global(qp.position());
@@ -109,38 +108,30 @@ public:
 			Gradient f; 
 			f[0] = 0.0;
 			f[1] = 0.0;
-			f[2] = -9.81 * rho; // kgm/s^2
+			//f[2] = -9.81 * rho; // kgm/s^2
 
 
-			double divu = gradu_0[0] + gradu_1[1] + gradu_2[2];
+			double divu = gradu_0[0] + gradu_1[1];
 			double D12u = 0.5 * (gradu_0[1] + gradu_1[0]);
-			double D13u = 0.5 * (gradu_2[0] + gradu_0[2]);
-			double D23u = 0.5 * (gradu_1[2] + gradu_2[1]);
-			
+			//double D13u = 0.5 * (gradu_2[0] + gradu_0[2]);
+			//double D23u = 0.5 * (gradu_1[2] + gradu_2[1]);
+			std::cout << "AV 5" << std::endl;
 			// integrate grad u * grad phi_i + a*u*phi_i - f phi_i
 			double factor = qp.weight()*eg.geometry().integrationElement(qp.position());
 			for(size_type i = 0; i < lfsu0.size(); ++i){
 				r.accumulate(lfsu0, i, (2 * mu * (gradu_0[0] * gradphi0[i][0]
-												  + D12u * gradphi0[i][1]
-												  + D13u * gradphi0[i][2])
+												  + D12u * gradphi0[i][1])
 										+ lambda * ( divu * gradphi0[i][0] )
 										- f[0]*phi0[i]) * factor);
 			}
 			for(size_type i = 0; i < lfsu1.size(); ++i){
 				r.accumulate(lfsu1, i, (2 * mu * (D12u * gradphi0[i][0]
-												  + gradu_1[1]*gradphi0[i][1]
-												  + D23u * gradphi0[i][2])
+												  + gradu_1[1]*gradphi0[i][1])
 										+ lambda * ( divu * gradphi0[i][1] )
 										- f[1]*phi0[i]) * factor);
 			}
-			for(size_type i = 0; i < lfsu2.size(); ++i){
-				r.accumulate(lfsu2, i, (2 * mu * (D13u * gradphi0[i][0]
-												  + D23u * gradphi0[i][1]
-												  + gradu_2[2] * gradphi0[i][2])
-										+ lambda * ( divu * gradphi0[i][2] )
-										- f[2]*phi0[i]) * factor);
-			}
 		}
+		std::cout << "AV 6" << std::endl;
 	}
 
 	// boundary integral
@@ -153,18 +144,19 @@ public:
 	void alpha_boundary (const IG& ig, const LFSU& lfsu_s, const X& x_s,
 	                   const LFSV& lfsv_s, R& r_s) const{
 		const int dim = IG::coorddimension;
+		std::cout << "AB 1" << std::endl;
 		// Tipovi skalarnih prostora 
 		//    using LFSU0 = typename LFSU:: template Child<0>::Type;
 		//    using LFSU1 = typename LFSU:: template Child<1>::Type;
 		// skalarni prostori
 		auto const & lfsu0 = lfsu_s.template child<0>();
 		auto const & lfsu1 = lfsu_s.template child<1>();
-		auto const & lfsu2 = lfsu_s.template child<2>();
 
 		using size_type =  typename LFSU::Traits::SizeType;
 
 		// kvadraturna formula na stranici
 		auto const & rule = Dune::PDELab::quadratureRule(ig.geometry(), intorder);
+		std::cout << "AB 2" << std::endl;
 
 		// loop over quadrature points and integrate normal flux
 		for (auto const & qp : rule){
@@ -175,9 +167,9 @@ public:
 			// Global position
 			auto globalpos = ig.geometry().global(qp.position());
 			// Opterećenje imamo samo na gornjoj granici z = 2.
-			if(globalpos[dim-1] < 2.0 - 1E-5){
-				continue;
-			}
+			//if(globalpos[dim-1] < 2.0 - 1E-5){
+			//	continue;
+			//}
 			// position of quadrature point in local coordinates of element
 			auto local = ig.geometryInInside().global(qp.position());
 
@@ -185,28 +177,26 @@ public:
 			auto& phi0 = cache.evaluateFunction(local,lfsu0.finiteElement().localBasis());
 
 			auto factor = qp.weight()*ig.geometry().integrationElement(qp.position());
-
+			std::cout << "AB 3" << std::endl;
 			Dune::FieldVector<double,dim> flux;
 			flux[0] = 0.0;
-			flux[1] = 0.0;
-			flux[2] = - g_vert;
-
+			flux[1] = g;
+			//flux[2] = - g;
+			std::cout << "AB 4" << std::endl;
 			for(size_type i = 0; i < lfsu0.size(); ++i){
 				r_s.accumulate(lfsu0,i, flux[0] * phi0[i] * factor);
 			}
 			for(size_type i = 0; i < lfsu1.size(); ++i){
 				r_s.accumulate(lfsu1,i, flux[1] * phi0[i] * factor);
 			}
-			for(size_type i = 0; i < lfsu2.size(); ++i){
-				r_s.accumulate(lfsu2,i, flux[2] * phi0[i] * factor);
-			}
 		}
+		std::cout << "AB 5" << std::endl;
 	}
 private:
 	const BCType & bctype;
 	double mu;
 	double lambda;
-	double g_vert;
+	double g;
 	double rho;
 	unsigned int intorder;
 	typedef typename FEM::Traits::FiniteElementType::Traits::LocalBasisType LocalBasis;

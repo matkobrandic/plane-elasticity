@@ -16,6 +16,7 @@
 
 #include <dune/grid/io/file/vtk/subsamplingvtkwriter.hh>
 
+#include <iostream>
 #include <string>
 #include <stdexcept>
 
@@ -23,95 +24,75 @@
 #include "operator.hh"
 
 template <typename GV>
-void driver(GV & gv, double E, double nu, double g_vert, double rho, std::string  name){
+void driver(GV & gv, double mu, double lambda, double g, double rho, std::string  name){
 	const int dim = GV::Grid::dimension;
 	const int k = 2; // stupanj prostora KE
-
 	// skalarni prostor konačnih elemenata
 	using FEM0 = Dune::PDELab::QkLocalFiniteElementMap<GV, double, double, k>;
-
-	//using CON = Dune::PDELab::NoConstraints;
-	using CON = Dune::PDELab::ConformingDirichletConstraints;
+	using CON = Dune::PDELab::NoConstraints;
 	using VEB0 = Dune::PDELab::ISTL::VectorBackend<>;
 	using GFS0 = Dune::PDELab::GridFunctionSpace<GV, FEM0, CON, VEB0>;
-
-	// U vektorskom slučaju dajemo način grupiranja varijabli. Fixed znači da
-	// grupiramo komponente koje pripadaju istoj nodalnoj točki.
 	using VEB = Dune::PDELab::ISTL::VectorBackend<Dune::PDELab::ISTL::Blocking::fixed>;
-
-	// Vektorski grid function space. Blok varijabli odgovara entitetu! (kod nas vrhu elementa)
-	// EntityBlockedOrderingTag = Indicate blocking of the unknowns by grid entity.
-	// LexicographicOrderingTag = Indicate lexicographic ordering of the unknowns of non-leaf grid function spaces.
-	// InterleavedOrderingTag = Indicate interleaved ordering of the unknowns of non-leaf grid function spaces ...
-/*
-	radi kartezijev produkt tih konačnih elemenata
-	mora odrediti kako će grupirati varijable -> 
-	efikasnije je (i ono što radimo) grupirati tako da
-	u jednoj nodalnoj točki uzmemo stupnjeve slobode svih varijabli
-	u 2 dim -> u jednoj za prvu komponentu, u drugoj za drugu.
-	Dakle 2 bloka stupnjeva sloboda
-*/
 	using GFS = Dune::PDELab::PowerGridFunctionSpace<GFS0, dim, VEB, Dune::PDELab::EntityBlockedOrderingTag>;
 	using CC = typename GFS::template ConstraintsContainer<double>::Type;
-
+	
 	// vektorski rubni uvjeti -- svaka varijabla zadovoljava Dirichletov uvjet na istom dijelu granice.
 	using U_BCTypeParam = Dune::PDELab::PowerConstraintsParameters<BCTypeParam<GV>, dim>;
-
 	// lokalni operator
 	using LOP = ElasticityLocalOperator<BCTypeParam<GV>, FEM0>;
 	using MBE = Dune::PDELab::ISTL::BCRSMatrixBackend<>;
-
 	// konstrukcija vektorskog grid  operatora
 	using GO = Dune::PDELab::GridOperator<GFS, GFS, LOP, MBE, double, double, double, CC, CC>;
-
 	// Interpoliramo rubni uvjet
 	using BCE0 = BCExtension<GV, double>;
-
 	// Konstruiraj vektorsku funkciju rubnog uvjeta
 	using BCE = Dune::PDELab::PowerGridFunction<BCE0, dim>;
-
 	// Linear solver -- sustav je (skoro) simetričan, možemo koristiti CG_ILU0
 	// using LS = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
 	using LS = Dune::PDELab::ISTLBackend_SEQ_BCGS_AMG_SSOR<GO>;
-
 	// vektor komponenti
 	using U = typename GO::Traits::Domain;
-
 	// linearni solver
 	using SLP = Dune::PDELab::StationaryLinearProblemSolver<GO, LS, U>;
-
 	// Uzmimo tipove za potprostore: 0 -> potprostor prve komponente, 1 -> druge itd.
 	using U0SUB = Dune::PDELab::GridFunctionSubSpace<GFS, Dune::TypeTree::TreePath<0> >;
 	using U1SUB = Dune::PDELab::GridFunctionSubSpace<GFS, Dune::TypeTree::TreePath<1> >;
-
 	// Napravi mrežnu funciju od svake komponenete rješenja
 	using U0_DGF =  Dune::PDELab::DiscreteGridFunction<U0SUB, U> ;
 	using U1_DGF =  Dune::PDELab::DiscreteGridFunction<U1SUB, U> ;
+
+	std::cout << "---------- Inside Driver routine ----------" << std::endl;
+
 
 	FEM0 fem0(gv);
 	GFS0 gfs0(gv,fem0);
 	GFS  gfs(gfs0);
 
+	std::cout << "1" << std::endl;
+	
 	// rubni uvjet za komponentu
 	BCTypeParam<GV> bc0(gv);
 	U_BCTypeParam bc(bc0);
 
+	std::cout << "2" << std::endl;
+
 	// odredi Dirichletovu granicu
 	CC cc;
+	std::cout << "3" << std::endl;
 	Dune::PDELab::constraints(bc, gfs, cc);
 
-	// Lame constants
-	double mu = E / ( 2 * (1 + nu) );
-	double lambda = E * nu / ((1 + nu) * (1 - 2*nu));
-	LOP lop(bc0, mu, lambda, g_vert, rho);
+	std::cout << "---------- Entering Operator routine ----------" << std::endl;
+
+	LOP lop(bc0, mu, lambda, g, rho);
+	std::cout << "beep" << std::endl;
 	MBE mbe(std::pow(1 + 2 * k, dim));
 	GO go(gfs, cc, gfs, cc, lop, mbe);
-
+	std::cout << "boop" << std::endl;
 	U u(gfs, 0.0);
-	BCE0 bce0(gv);   // Dirichletov
-	BCE bce(bce0);   // rubni uvjet
-	Dune::PDELab::interpolate(bce, gfs, u);
-
+	//BCE0 bce0(gv);   // Dirichletov
+	//BCE bce(bce0);   // rubni uvjet
+	//Dune::PDELab::interpolate(bce, gfs, u);
+	std::cout << "bop" << std::endl;
 	// ILI ako razne komponente rješenja imaju različite Dirichletove vrijednosti 
 	// using BCE0 = BCExtension0<GV, double>;
 	// using BCE1 = BCExtension0<GV, double>;
@@ -125,7 +106,7 @@ void driver(GV & gv, double E, double nu, double g_vert, double rho, std::string
 	LS ls(5000, true);
 	SLP slp(go, ls, u, 1e-8);
 	slp.apply();
-
+	std::cout << "boop" << std::endl;
 	if(slp.ls_result().converged){
 		std::cout << "Problem solved.\n";
 	}

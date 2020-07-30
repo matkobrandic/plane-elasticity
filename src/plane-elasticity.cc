@@ -5,15 +5,30 @@
 
 #include <dune/common/parallel/mpihelper.hh>
 #include <dune/common/exceptions.hh>
-#include <dune/grid/yaspgrid.hh>     
+#include <dune/grid/uggrid.hh>     
 #include <dune/common/parametertree.hh>
 #include <dune/common/parametertreeparser.hh>
+#include <dune/grid/io/file/gmshreader.hh>
+
 
 
 #include "driver.hh"
 
 int main(int argc, char** argv){
-	Dune::MPIHelper::instance(argc, argv);
+	Dune::MPIHelper& helper = Dune::MPIHelper::instance(argc, argv);
+
+	const int dim = 2;
+	using GridType = Dune::UGGrid<dim>;
+	using GridView = GridType::LeafGridView;
+	bool verbosity = true;
+	bool insertBoundarySegments = false;  // Bez toga Dune::GmshReader zna podbaciti (barem u 3D)
+	// mashgrid filename
+	std::string file("domain.msh");
+	// Read mashgrid from msh file
+	GridType* pgrid = Dune::GmshReader<GridType>::read(file, verbosity, insertBoundarySegments);
+	GridView gv = pgrid->leafGridView();
+	//In case of parallel computing -> distribute grid 
+	pgrid->loadBalance();
 
 	// read input file
 	Dune::ParameterTree input_data;
@@ -31,35 +46,18 @@ int main(int argc, char** argv){
 		std::exit(1);
 	}
 
-	int   level   =  input_data.get<int>("level");  // refine level
-	double E      =  input_data.get<double>("E");   // Young Modulus
-	double nu     =  input_data.get<double>("nu");  // Poisson Ratio
-	double g_vert =  input_data.get<double>("g_vert");
+	// int   level   =  input_data.get<int>("level");  // refine level
 	double rho    =  input_data.get<double>("rho");  // Mass Density
-	std::string name = input_data.get<std::string>("output"); 
-
-	//computing Lame constants lambda and mui
-	double numerator = E * nu;
-	double denominator = (1 + nu) * (1 - 2*nu);
-	double lambda = numerator / denominator;
+	std::string name = input_data.get<std::string>("output");
+	double E = input_data.get<double>("E");	// Young Modulus
+	double nu = input_data.get<double>("nu");	// Poisson Ratio
 	
-	denominator = 2 * (1 + nu);
-	double mu = E / denominator;
+	double mu = E / (2 * (1 + nu));
+	double lambda = E * nu / ((1 + nu) * (1 - 2*nu));
 
-	g_vert *= (mu + lambda);
-
-	constexpr int dim = 2;  // grid dimension
-	using GridType = Dune::YaspGrid<dim>;
-	Dune::FieldVector<GridType::ctype,dim> L(2.0); // 
-
-	std::array<int,dim> s = {20, 20};
-	GridType grid(L, s);
-	if(level > 0){
-		grid.globalRefine(level);
-	}
-
-	auto gv = grid.leafGridView();
-	driver(gv, E, nu, g_vert, rho, name);
+	double g = 0.02 * (mu + lambda); 
+	std::cout << "---------- Entering Driver routine ----------" << std::endl;
+	driver(gv, mu, lambda, g, rho, name);
 
 	return 0;
 }
