@@ -70,7 +70,6 @@ public:
 		auto const & lfsu1 = lfsu.template child<1>();
 
 		for(auto const & qp : rule){
-			std::cout << "In for alpha volume" << std::endl;
 			// Uzimamo samo skalarne bazne funkcije jer su bazne funkcije za svaku komponentu iste.
 			auto& phi0 = cache.evaluateFunction(qp.position(), lfsu0.finiteElement().localBasis());
 			// Izračunajmo sve komponenete pomaka u integracijskoj točki.
@@ -131,8 +130,6 @@ public:
 				r.accumulate(lfsu1, i, ( 2*mu * (  D12u * gradphi0[i][0] + gradu_1[1]*gradphi0[i][1] )
 										 + lambda * (divu * gradphi0[i][1])) * factor);
 		}
-		std::cout << "Finished for alpha volume" << std::endl;
-
 	}
 
 	// boundary integral

@@ -89,9 +89,7 @@ void driver(GV & gv, double mu, double lambda, double g, double rho, std::string
 	//Dune::PDELab::interpolate(bce, gfs, u);
 	std::cout << "---------- Using Linear Solver ---------" << std::endl;
 	LS ls(5000, true);
-	std::cout << "--- 1st boop ---" << std::endl;
 	SLP slp(go, ls, u, 1e-8);
-	std::cout << "--- 2nd boop ---" << std::endl;
 	slp.apply();
 	std::cout << "boop" << std::endl;
 	if(slp.ls_result().converged){
