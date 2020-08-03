@@ -27,7 +27,7 @@ class ElasticityLocalOperator : // derivacijska lista -- jakobijan i pattern ra�
 {
 public:
 	// Zastavice koje signaliziraju da na svakom elementu treba zvati: 
-	enum { doPatternVolume = true };  // metodu za računanje patterna (iz volumnih doprinosa)
+	//enum { doPatternVolume = true };  // metodu za računanje patterna (iz volumnih doprinosa)
 	enum { doAlphaVolume = true };    // alpha_volume
 	enum { doAlphaBoundary = true };  // alpha_boundary
 
@@ -49,7 +49,6 @@ public:
 		const int dim = EG::Geometry::mydimension;
 		const int dimw = EG::Geometry::coorddimension;
 
-		std::cout << "AV 1" << std::endl;
 		// Koristimo činjenicu da je LFSU = LFSV
 		// Tipovi skalarnih prostora dobivaju se na ovaj način.
 		// using LFSU0 = typename LFSU::template Child<0>::Type;
@@ -70,9 +69,8 @@ public:
 		auto const & lfsu0 = lfsu.template child<0>();
 		auto const & lfsu1 = lfsu.template child<1>();
 
-		std::cout << "AV 2" << std::endl;
-
 		for(auto const & qp : rule){
+			std::cout << "In for alpha volume" << std::endl;
 			// Uzimamo samo skalarne bazne funkcije jer su bazne funkcije za svaku komponentu iste.
 			auto& phi0 = cache.evaluateFunction(qp.position(), lfsu0.finiteElement().localBasis());
 			// Izračunajmo sve komponenete pomaka u integracijskoj točki.
@@ -83,7 +81,6 @@ public:
 			for(size_type i = 0; i < lfsu1.size(); ++i){
 				u_1 += x(lfsu1,i)*phi0[i];
 			}
-			std::cout << "AV 3" << std::endl;
 			// Gradijenti skalarnih baznih funkcija na ref elementu.
 			auto const & js0 = cache.evaluateJacobian(qp.position(), lfsu0.finiteElement().localBasis());
 			// Gradijenti skalarnih baznih funkcija na fizičkom elementu
@@ -100,7 +97,6 @@ public:
 			for(size_type i = 0; i < lfsu1.size(); ++i){
 				gradu_1.axpy(x(lfsu1,i), gradphi0[i]);
 			}
-			std::cout << "AV 4" << std::endl;
 			// evaluate parameters;
 			// Dune::FieldVector<RF,dim>
 			//   globalpos = eg.geometry().global(qp.position());
@@ -113,14 +109,10 @@ public:
 
 			double divu = gradu_0[0] + gradu_1[1];
 			double D12u = 0.5 * (gradu_0[1] + gradu_1[0]);
-			//double D13u = 0.5 * (gradu_2[0] + gradu_0[2]);
-			//double D23u = 0.5 * (gradu_1[2] + gradu_2[1]);
-			std::cout << "AV 5" << std::endl;
-			// integrate grad u * grad phi_i + a*u*phi_i - f phi_i
 			double factor = qp.weight()*eg.geometry().integrationElement(qp.position());
+			/*
 			for(size_type i = 0; i < lfsu0.size(); ++i){
-				r.accumulate(lfsu0, i, (2 * mu * (gradu_0[0] * gradphi0[i][0]
-												  + D12u * gradphi0[i][1])
+				r.accumulate(lfsu0, i, (2 * mu * (gradu_0[0] * gradphi0[i][0] + D12u * gradphi0[i][1])
 										+ lambda * ( divu * gradphi0[i][0] )
 										- f[0]*phi0[i]) * factor);
 			}
@@ -130,8 +122,17 @@ public:
 										+ lambda * ( divu * gradphi0[i][1] )
 										- f[1]*phi0[i]) * factor);
 			}
+			*/
+
+			for(size_type i=0; i<lfsu0.size(); ++i)
+				r.accumulate(lfsu0, i, ( 2*mu * (gradu_0[0]*gradphi0[i][0] + D12u * gradphi0[i][1])
+										 + lambda * (divu * gradphi0[i][0])) * factor );
+			for(size_type i=0; i<lfsu1.size(); ++i)
+				r.accumulate(lfsu1, i, ( 2*mu * (  D12u * gradphi0[i][0] + gradu_1[1]*gradphi0[i][1] )
+										 + lambda * (divu * gradphi0[i][1])) * factor);
 		}
-		std::cout << "AV 6" << std::endl;
+		std::cout << "Finished for alpha volume" << std::endl;
+
 	}
 
 	// boundary integral
@@ -144,7 +145,6 @@ public:
 	void alpha_boundary (const IG& ig, const LFSU& lfsu_s, const X& x_s,
 	                   const LFSV& lfsv_s, R& r_s) const{
 		const int dim = IG::coorddimension;
-		std::cout << "AB 1" << std::endl;
 		// Tipovi skalarnih prostora 
 		//    using LFSU0 = typename LFSU:: template Child<0>::Type;
 		//    using LFSU1 = typename LFSU:: template Child<1>::Type;
@@ -156,33 +156,40 @@ public:
 
 		// kvadraturna formula na stranici
 		auto const & rule = Dune::PDELab::quadratureRule(ig.geometry(), intorder);
-		std::cout << "AB 2" << std::endl;
 
 		// loop over quadrature points and integrate normal flux
 		for (auto const & qp : rule){
 			// skip rest if we are on Dirichlet boundary
-			if ( bctype.isDirichlet( ig, qp.position()) ){
-				continue;
+			//if ( bctype.isDirichlet( ig, qp.position()) ){
+			//	continue;
+			//}
+
+			Dune::FieldVector<double,dim> flux;
+			if ( bctype.isLeft(ig, qp.position()) ){
+				flux[0] = -g;
+				flux[1] = 0.0;
+			}
+			if( bctype.isRight(ig, qp.position()) ){
+				flux[0] = g;
+				flux[1] = 0.0;
+			}
+			if( bctype.isUp(ig,qp.position()) ){
+				flux[0] = 0.0;
+				flux[1] = g;
+			}
+			if( bctype.isDown(ig,qp.position()) ){
+				flux[0] = 0.0;
+				flux[1] = -g;
 			}
 			// Global position
 			auto globalpos = ig.geometry().global(qp.position());
-			// Opterećenje imamo samo na gornjoj granici z = 2.
-			//if(globalpos[dim-1] < 2.0 - 1E-5){
-			//	continue;
-			//}
 			// position of quadrature point in local coordinates of element
 			auto local = ig.geometryInInside().global(qp.position());
-
 			// Imamo onoliko vektora baznih funkcija koliko ima komponenata, ali sve su "iste"
 			auto& phi0 = cache.evaluateFunction(local,lfsu0.finiteElement().localBasis());
 
 			auto factor = qp.weight()*ig.geometry().integrationElement(qp.position());
-			std::cout << "AB 3" << std::endl;
-			Dune::FieldVector<double,dim> flux;
-			flux[0] = 0.0;
-			flux[1] = g;
-			//flux[2] = - g;
-			std::cout << "AB 4" << std::endl;
+
 			for(size_type i = 0; i < lfsu0.size(); ++i){
 				r_s.accumulate(lfsu0,i, flux[0] * phi0[i] * factor);
 			}
@@ -190,7 +197,6 @@ public:
 				r_s.accumulate(lfsu1,i, flux[1] * phi0[i] * factor);
 			}
 		}
-		std::cout << "AB 5" << std::endl;
 	}
 private:
 	const BCType & bctype;

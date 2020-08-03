@@ -36,7 +36,7 @@ public:
 						  typename Traits::RangeType& y) const{
 	// Pretvori lokalne koordinate u globalne
 	//auto x = e.geometry().global(xlocal);
-	y = 0.0;
+	//y = 0.0;
 	return;
 	}
 

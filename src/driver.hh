@@ -1,12 +1,14 @@
 #ifndef DRIVER_HH_IS_INCLUDED
 #define DRIVER_HH_IS_INCLUDED
 
-#include <dune/pdelab/finiteelementmap/qkfem.hh>
+//#include <dune/pdelab/finiteelementmap/qkfem.hh>
+#include <dune/pdelab/finiteelementmap/pkfem.hh>
+#include <dune/pdelab/common/function.hh>
 #include <dune/pdelab/constraints/conforming.hh>
 #include <dune/pdelab/constraints/common/constraints.hh>
 #include <dune/pdelab/gridfunctionspace/gridfunctionspace.hh>
-//#include <dune/pdelab/gridfunctionspace/vectorgridfunctionspace.hh> // added
-//#include<dune/pdelab/gridfunctionspace/gridfunctionspaceutilities.hh>
+#include <dune/pdelab/gridfunctionspace/vectorgridfunctionspace.hh> // added
+#include <dune/pdelab/gridfunctionspace/gridfunctionspaceutilities.hh>
 #include <dune/pdelab/gridfunctionspace/tags.hh>
 #include <dune/pdelab/gridfunctionspace/subspace.hh>
 #include <dune/pdelab/gridfunctionspace/vtk.hh>
@@ -28,7 +30,7 @@ void driver(GV & gv, double mu, double lambda, double g, double rho, std::string
 	const int dim = GV::Grid::dimension;
 	const int k = 2; // stupanj prostora KE
 	// skalarni prostor konačnih elemenata
-	using FEM0 = Dune::PDELab::QkLocalFiniteElementMap<GV, double, double, k>;
+	using FEM0 = Dune::PDELab::PkLocalFiniteElementMap<GV, double, double, k>;
 	using CON = Dune::PDELab::NoConstraints;
 	using VEB0 = Dune::PDELab::ISTL::VectorBackend<>;
 	using GFS0 = Dune::PDELab::GridFunctionSpace<GV, FEM0, CON, VEB0>;
@@ -48,7 +50,7 @@ void driver(GV & gv, double mu, double lambda, double g, double rho, std::string
 	// Konstruiraj vektorsku funkciju rubnog uvjeta
 	using BCE = Dune::PDELab::PowerGridFunction<BCE0, dim>;
 	// Linear solver -- sustav je (skoro) simetričan, možemo koristiti CG_ILU0
-	// using LS = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
+	//using LS = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
 	using LS = Dune::PDELab::ISTLBackend_SEQ_BCGS_AMG_SSOR<GO>;
 	// vektor komponenti
 	using U = typename GO::Traits::Domain;
@@ -63,48 +65,33 @@ void driver(GV & gv, double mu, double lambda, double g, double rho, std::string
 
 	std::cout << "---------- Inside Driver routine ----------" << std::endl;
 
-
 	FEM0 fem0(gv);
 	GFS0 gfs0(gv,fem0);
 	GFS  gfs(gfs0);
-
-	std::cout << "1" << std::endl;
 	
 	// rubni uvjet za komponentu
 	BCTypeParam<GV> bc0(gv);
 	U_BCTypeParam bc(bc0);
 
-	std::cout << "2" << std::endl;
-
 	// odredi Dirichletovu granicu
 	CC cc;
-	std::cout << "3" << std::endl;
 	Dune::PDELab::constraints(bc, gfs, cc);
 
 	std::cout << "---------- Entering Operator routine ----------" << std::endl;
 
 	LOP lop(bc0, mu, lambda, g, rho);
-	std::cout << "beep" << std::endl;
-	MBE mbe(std::pow(1 + 2 * k, dim));
+	MBE mbe( static_cast<int>(std::pow(1 + 2 * k, dim)) );
+	//MBE mbe(std::pow(1 + 2 * k, dim));
 	GO go(gfs, cc, gfs, cc, lop, mbe);
-	std::cout << "boop" << std::endl;
 	U u(gfs, 0.0);
 	//BCE0 bce0(gv);   // Dirichletov
 	//BCE bce(bce0);   // rubni uvjet
 	//Dune::PDELab::interpolate(bce, gfs, u);
-	std::cout << "bop" << std::endl;
-	// ILI ako razne komponente rješenja imaju različite Dirichletove vrijednosti 
-	// using BCE0 = BCExtension0<GV, double>;
-	// using BCE1 = BCExtension0<GV, double>;
-	// BCE0 bce0(gv);
-	// BCE0 bce1(gv);
-	// using BCE = Dune::PDELab::CompositeGridFunction<BCE0, BCE0>;
-	// BCE bce(bce0, bce1);
-	// Dune::PDELab::interpolate(bce, gfs, u);
-
-
+	std::cout << "---------- Using Linear Solver ---------" << std::endl;
 	LS ls(5000, true);
+	std::cout << "--- 1st boop ---" << std::endl;
 	SLP slp(go, ls, u, 1e-8);
+	std::cout << "--- 2nd boop ---" << std::endl;
 	slp.apply();
 	std::cout << "boop" << std::endl;
 	if(slp.ls_result().converged){
@@ -117,6 +104,7 @@ void driver(GV & gv, double mu, double lambda, double g, double rho, std::string
 	Dune::SubsamplingVTKWriter<GV> vtkwriter(gv, Dune::RefinementIntervals{1});
 	U0SUB u0sub(gfs); // prostor za prvu komponentu
 	U1SUB u1sub(gfs); // prostor za drugu komponentu
+
 	U0_DGF u0_dgf(u0sub, u);
 	U1_DGF u1_dgf(u1sub, u);
 
