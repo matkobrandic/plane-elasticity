@@ -27,7 +27,7 @@ class ElasticityLocalOperator : // derivacijska lista -- jakobijan i pattern ra�
 {
 public:
 	// Zastavice koje signaliziraju da na svakom elementu treba zvati: 
-	//enum { doPatternVolume = true };  // metodu za računanje patterna (iz volumnih doprinosa)
+    enum { doPatternVolume = true };  // metodu za računanje patterna (iz volumnih doprinosa)
 	enum { doAlphaVolume = true };    // alpha_volume
 	enum { doAlphaBoundary = true };  // alpha_boundary
 

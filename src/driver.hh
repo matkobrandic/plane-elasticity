@@ -50,8 +50,8 @@ void driver(GV & gv, double mu, double lambda, double g, double rho, std::string
 	// Konstruiraj vektorsku funkciju rubnog uvjeta
 	using BCE = Dune::PDELab::PowerGridFunction<BCE0, dim>;
 	// Linear solver -- sustav je (skoro) simetričan, možemo koristiti CG_ILU0
-	//using LS = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
-	using LS = Dune::PDELab::ISTLBackend_SEQ_BCGS_AMG_SSOR<GO>;
+    using LS = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
+    //using LS = Dune::PDELab::ISTLBackend_SEQ_BCGS_AMG_SSOR<GO>;
 	// vektor komponenti
 	using U = typename GO::Traits::Domain;
 	// linearni solver
