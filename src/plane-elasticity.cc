@@ -16,12 +16,11 @@
 
 int main(int argc, char** argv){
 	Dune::MPIHelper& helper = Dune::MPIHelper::instance(argc, argv);
-
 	const int dim = 2;
 	using GridType = Dune::UGGrid<dim>;
 	using GridView = GridType::LeafGridView;
 	bool verbosity = true;
-	bool insertBoundarySegments = false;  // Bez toga Dune::GmshReader zna podbaciti (barem u 3D)
+	bool insertBoundarySegments = false;
 	// mashgrid filename
 	std::string file("domain.msh");
 	// Read mashgrid from msh file
@@ -29,11 +28,9 @@ int main(int argc, char** argv){
 	GridView gv = pgrid->leafGridView();
 	//In case of parallel computing -> distribute grid 
 	pgrid->loadBalance();
-
 	// read input file
 	Dune::ParameterTree input_data;
 	std::string filename (std::string(argv[0])+".input");
-
 	if (argc > 1){
 		filename = argv[1];
 	}
@@ -45,18 +42,14 @@ int main(int argc, char** argv){
 					 "could not be read. Exiting..." << std::endl;
 		std::exit(1);
 	}
-
-	// int   level   =  input_data.get<int>("level");  // refine level
 	double rho    =  input_data.get<double>("rho");  // Mass Density
 	std::string name = input_data.get<std::string>("output");
 	double E = input_data.get<double>("E");	// Young Modulus
 	double nu = input_data.get<double>("nu");	// Poisson Ratio
-	
 	double mu = E / (2 * (1 + nu));
 	double lambda = E * nu / ((1 + nu) * (1 - 2*nu));
 
 	double g = 0.02 * (mu + lambda); 
-	std::cout << "---------- Entering Driver routine ----------" << std::endl;
 	driver(gv, mu, lambda, g, rho, name);
 
 	return 0;

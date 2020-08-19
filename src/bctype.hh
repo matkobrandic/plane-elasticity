@@ -34,9 +34,6 @@ public:
 	inline void evaluate (const typename Traits::ElementType& e,
 						  const typename Traits::DomainType& xlocal,
 						  typename Traits::RangeType& y) const{
-	// Pretvori lokalne koordinate u globalne
-	//auto x = e.geometry().global(xlocal);
-    y = 0.0;
 	return;
 	}
 
@@ -52,19 +49,7 @@ public:
 	BCTypeParam(const GV& gv_) : gv(gv_) {}
 
 public:
-	//  intersection = stranica elementa (u 3D) ili brid elementa (u 2D)
-	//  coord        = lokalne koordinate točke na "intersectionu" koja se ispituje
-	//  povratna vrijednost: true ako je točka na Dirichletovoj granici
-	//                       false ako nije. 
-
-	template<typename I>
-	bool isDirichlet(const I & intersection,
-					 const Dune::FieldVector<typename I::ctype, I::coorddimension-1> & coord
-					) const{
-		return false;
-	}
-
-	// provjerava na kojem smo rubu domene
+	// provjeravamo na kojem smo rubu domene
 	template<typename I>
 	bool isLeft(const I & intersection,
 				const Dune::FieldVector<typename I::ctype, I::coorddimension-1> & coord
